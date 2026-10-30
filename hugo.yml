@@ -1,0 +1,63 @@
+---
+locale: en
+title: Git
+disablePathToLower: true
+relativeURLs: true
+uglyURLs: true
+disableKinds:
+- RSS
+- taxonomy
+- term
+markup:
+  goldmark:
+    renderer:
+      unsafe: true
+mediaTypes:
+  application/json:
+    suffixes:
+    - json
+module:
+  mounts:
+  - source: content
+    target: content
+  - source: static
+    target: static
+  - source: data
+    target: data
+  - source: external/book/data/book
+    target: data/book
+  - source: external/book/content/book
+    target: content/book
+  - source: external/book/static/book
+    target: static/book
+  - source: external/docs/data
+    target: data
+  - source: external/docs/content
+    target: content
+params:
+  hugo_version: 0.161.1
+  pagefind_version: 1.5.2
+  latest_version: 2.56.0
+  latest_relnote_url: https://gitlab.com/git-scm/git/-/blob/HEAD/Documentation/RelNotes/2.56.0.adoc
+  latest_release_date: '2026-09-28'
+  windows_installer:
+    installer_x64:
+      filename: Git-2.56.0.4-64-bit.exe
+      release_date: '2026-10-26'
+      version: 2.56.0(4)
+      url: https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.4/Git-2.56.0.4-64-bit.exe
+    installer_arm64:
+      filename: Git-2.56.0.4-arm64.exe
+      release_date: '2026-10-26'
+      version: 2.56.0(4)
+      url: https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.4/Git-2.56.0.4-arm64.exe
+    portable_x64:
+      filename: PortableGit-2.56.0.4-64-bit.7z.exe
+      release_date: '2026-10-26'
+      version: 2.56.0(4)
+      url: https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.4/PortableGit-2.56.0.4-64-bit.7z.exe
+    portable_arm64:
+      filename: PortableGit-2.56.0.4-arm64.7z.exe
+      release_date: '2026-10-26'
+      version: 2.56.0(4)
+      url: https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.4/PortableGit-2.56.0.4-arm64.7z.exe

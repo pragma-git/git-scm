@@ -1,0 +1,77 @@
+<div id="front-content">
+  <section id="front-navigation">
+    <nav id="front-nav">
+      <ul>
+        <li>
+          <a href="{{ relURL "about" }}">
+            <img src="{{ relURL "images/icons/fa-gears.svg" }}" width="74" height="74" />
+            <h3>About</h3>
+            <p>Git's performance and ecosystem</p>
+          </a>
+        </li>
+        <li>
+          <a href="{{ relURL "learn" }}">
+            <img src="{{ relURL "images/icons/fa-lightbulb.svg" }}" width="74" height="74" />
+            <h3>Learn</h3>
+            <p>Pro Git book, videos, tutorials, and cheat sheet</p>
+          </a>
+        </li>
+        <li>
+          <a href="{{ relURL "tools" }}">
+            <img src="{{ relURL "images/icons/fa-screwdriver-wrench.svg" }}" width="74" height="74" />
+            <h3>Tools</h3>
+            <p>Command line tools, GUIs, and hosting services</p>
+          </a>
+        </li>
+        <li>
+          <a href="{{ relURL "docs" }}">
+            <img src="{{ relURL "images/icons/fa-book-open.svg" }}" width="74" height="74" />
+            <h3>Reference</h3>
+            <p>Git's reference documentation</p>
+          </a>
+        </li>
+        <li>
+          <a class="install-link" href="{{ relURL "install" }}">
+            <img src="{{ relURL "images/icons/fa-down-long.svg" }}" width="74" height="74" />
+            <h3>Install</h3>
+            <p>Binary releases for all major platforms.</p>
+          </a>
+        </li>
+        <li>
+          <a href="{{ relURL "community" }}">
+            <img src="{{ relURL "images/icons/fa-comments.svg" }}" width="74" height="74" />
+            <h3>Community</h3>
+            <p>Get involved! Bug reporting, mailing list, chat, development and more.</p>
+          </a>
+        </li>
+      </ul>
+    </nav>
+    <div id="front-book">
+      <img src="{{ relURL "images/progit2.png" }}" width="56" height="74" />
+      <p>
+        <strong><a href="{{ relURL "book" }}">Pro Git</a></strong>
+        by Scott Chacon and Ben Straub is available to
+        <a href="{{ relURL "book" }}">read online for free</a>.
+        Dead tree versions are available on <a href="https://www.amazon.com/Pro-Git-Scott-Chacon/dp/1484200772?ie=UTF8&camp=1789&creative=9325&creativeASIN=1430218339&linkCode=as2&tag=git-sfconservancy-20">Amazon.com</a>.
+      </p>
+    </div>
+  </section>
+  <section id="front-downloads">
+    <div class="downloads-box">
+      <div class="release-info">
+        <h4>Latest source release</h4>
+        <span class="version">{{ .Site.Params.latest_version }}</span>
+        <a href="{{ .Site.Params.latest_relnote_url }}">Release Notes</a>
+        <time>({{ .Site.Params.latest_release_date }})</time>
+      </div>
+
+        <a id="download-link" href="{{ relURL "install" }}" class="button">
+          Install
+        </a>
+
+        <a href="{{ relURL "install/source" }}" class="button git-repo-link">
+          Source code
+        </a>
+    </div>
+</section>
+</div>

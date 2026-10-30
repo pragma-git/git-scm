@@ -1,0 +1,28 @@
+git-verify-tag(1)
+=================
+
+NOME
+----
+git-verify-tag - Verifique a assinatura GPG das tags
+
+RESUMO
+------
+[synopsis]
+git verify-tag [-v | --verbose] [--format=<format>] [--raw] <tag>...
+
+DESCRIÇÃO
+---------
+Validates the gpg signature created by `git tag` in the tag objects listed on the command line.
+
+OPÇÕES
+------
+`--raw`::
+	Imprima a condição bruta do gpg na saída de erro predefinida em vez de uma saída legível para as pessoas.
+
+`-v`::
+`--verbose`::
+	Imprima o conteúdo da tag do objeto commit antes de validá-lo.
+
+GIT
+---
+Parte do conjunto linkgit:git[1]

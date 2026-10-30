@@ -1,0 +1,308 @@
+name: 'Run Hugo/Pagefind and deploy to GitHub Pages'
+description: 'Runs Hugo and Pagefind and then deploys the result to GitHub Pages.'
+# This composite Action requires the following things in the calling workflow:
+#
+# permissions:
+#   contents: write # to push changes (if any)
+#   pages: write # to deploy to GitHub Pages
+#   id-token: write # to verify that the deployment source is legit
+# environment:
+#   name: github-pages
+#   url: ${{ steps.<id-of-deployment-step>.outputs.url }}
+inputs:
+  github-token:
+    description: The GitHub token used to create an authenticated client
+    default: ${{ github.token }}
+    required: true
+  cloudflare-token:
+    description: The Cloudflare API token used to purge Cloudflare caches.
+    required: false
+  cloudflare-zone:
+    description: The Cloudflare zone to purge.
+    required: false
+  external-https:
+    description: Whether HTTPS is set up externally, e.g. on Cloudflare instead of GitHub.
+    default: false
+    required: false
+outputs:
+  url:
+    description: The URL to which the site was deployed
+    value: ${{ steps.deploy.outputs.page_url }}
+runs:
+  using: "composite"
+  steps:
+    - name: push changes (if needed)
+      shell: bash
+      run: |
+        test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/${{ github.ref_name }})" ||
+        git push origin HEAD:${{ github.ref }}
+
+    - name: un-sparse worktree to prepare for deployment
+      shell: bash
+      run: git sparse-checkout disable
+
+    - name: setup GitHub Pages
+      id: pages
+      uses: actions/configure-pages@v5
+
+    - name: set base URL
+      shell: bash
+      run: |
+        base_url="${{ steps.pages.outputs.base_url }}"
+        if [ "${{ inputs.external-https }}" = true ] ; then
+          base_url="$(echo "$base_url" | sed 's/^http:/https:/')"
+        fi
+        echo "base_url=$base_url" >>"$GITHUB_ENV"
+
+    - name: configure Hugo and Pagefind version
+      shell: bash
+      run: |
+        set -x &&
+        echo "HUGO_VERSION=$(sed -n 's/^ *hugo_version: *//p' <hugo.yml)" >>$GITHUB_ENV
+        echo "PAGEFIND_VERSION=$(sed -n 's/^ *pagefind_version: *//p' <hugo.yml)" >>$GITHUB_ENV
+
+    - name: install Hugo ${{ env.HUGO_VERSION }}
+      shell: bash
+      run: |
+        set -x &&
+        curl -Lo /tmp/hugo.deb https://github.com/gohugoio/hugo/releases/download/v$HUGO_VERSION/hugo_extended_${HUGO_VERSION}_linux-amd64.deb &&
+        sudo dpkg -i /tmp/hugo.deb
+
+    - name: run Hugo to build the pages
+      env:
+        HUGO_RELATIVEURLS: false
+      shell: bash
+      run: hugo config && hugo --baseURL "${{ env.base_url }}/"
+
+    - name: enforce HTTPS in links to git-scm.com from external sources (book, docs, ...)
+      if: startsWith(env.base_url, 'https://')
+      shell: bash
+      run: |
+        find public/book public/docs -name \*.html -print0 |
+        xargs -0r sed -i 's,http://git-scm\.com,https://git-scm.com,g'
+
+    - uses: actions/setup-node@v5
+    - name: pre-render the Graphviz diagrams
+      shell: bash
+      run: |
+        npm install node-html-parser &&
+        node ./script/graphviz-ssr.js
+
+    - name: offer PDF version of the cheat sheet
+      shell: bash
+      run: |
+        npm install @playwright/test &&
+        node script/html-to-pdf.js -i public/cheat-sheet.html
+
+    - name: run Pagefind ${{ env.PAGEFIND_VERSION }} to build the search index
+      shell: bash
+      run: npx -y pagefind@${{ env.PAGEFIND_VERSION }} --site public --write-playground
+
+    - name: upload GitHub Pages artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ./public
+
+    - name: deploy
+      id: deploy
+      uses: actions/deploy-pages@v4
+
+    - name: Purge Cloudflare cache
+      id: cloudflare
+      shell: bash
+      env:
+        CLOUDFLARE_ZONE: ${{ inputs.cloudflare-zone }}
+        CLOUDFLARE_TOKEN: ${{ inputs.cloudflare-token }}
+      if: env.CLOUDFLARE_TOKEN != ''
+      run: |
+        curl "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE/purge_cache" \
+          -H "Authorization: Bearer $CLOUDFLARE_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d '{ "purge_everything": true }'
+
+    - name: construct `--remap` options, root-dir for lychee
+      id: remap
+      shell: bash
+      run: |
+        # Prepare the root-dir for use with the `--root-dir` option
+        echo "root-dir-arg=$PWD/root-dir" >>$GITHUB_OUTPUT &&
+        case "$base_url" in
+        https://*/?*|http://*/?*)
+          # The base URL is not at the top-level of the URL
+          subdir="${base_url#http*://*/}"
+          target="root-dir/${subdir%/}"
+          source="$(echo "${subdir%/}" | sed 's/[^/]*/../g')/public"
+          mkdir -p "${target%/*}" &&
+          ln -s "$source" "$target" &&
+          echo "root-dir=$target/" >>$GITHUB_OUTPUT
+          ;;
+        https://*|http://*)
+          # The base URL is at the top-level of the URL
+          ln -s public root-dir &&
+          echo 'root-dir=root-dir/' >>$GITHUB_OUTPUT
+          ;;
+        *)
+          echo "::error::Unexpected base_url '$base_url'" >&2
+          echo exit 1
+          ;;
+        esac || exit
+
+        echo "result=$(echo "$base_url" |
+          sed 's|^\(.*\)\(/git-scm\.com\)$|^(\1)?\2(.*)|') file://$PWD/public\$2" \
+          >>$GITHUB_OUTPUT
+        # When running in forks, do detect when links try to break out of the
+        # `/git-scm.com/` subdirectory
+        echo "remap-dotdot=$(echo "$base_url" |
+          sed -n 's|^\(https\?:\/\/.*\)\(/git-scm\.com\)$|--remap '\''^(\1.*) file://../$1'\''|p')" \
+          >>$GITHUB_OUTPUT
+        # When running in forks, do treat https://git-scm.com links as if they were relative
+        test https://git-scm.com = "$base_url" ||
+        echo "remap-git-scm=--remap '^https?://git-scm.com(.*) file://$PWD/public\$1'" >>$GITHUB_OUTPUT
+
+    - name: check for downgrades to unencrypted HTTP
+      if: startsWith(env.base_url, 'https://')
+      shell: bash
+      # The `--require-https` option of lychee could come in handy,
+      # but it also complains about `http://` links to other sites,
+      # and (more importantly) doesn't work in offline mode.
+      # A simple `grep` should work without any false positives,
+      # unless git-scm.com mentions the base URL of one of its forks,
+      # which is unlikely.
+      #
+      # To catch bugs early, let's always look for non-HTTPS links
+      # to git-scm.com.
+      run: '! grep -FInre "http://git-scm.com" -e "http:${base_url#https:}" public'
+
+    - name: check for broken links
+      id: lychee
+      uses: lycheeverse/lychee-action@v2
+      with:
+        args: >-
+          --offline
+          --fallback-extensions html
+          --root-dir '${{ steps.remap.outputs.root-dir-arg }}'
+          --remap '${{ steps.remap.outputs.result }}'
+          ${{ steps.remap.outputs.remap-dotdot }}
+          ${{ steps.remap.outputs.remap-git-scm }}
+          --exclude file:///path/to/repo.git/
+          --exclude file:///caminho/para/o/reposit%C3%B3rio.git/
+          --exclude file:///ruta/a/repositorio.git/
+          --exclude file:///sl%C3%B3%C3%B0/til/hirsla.git/
+          --exclude file:///Pfad/zum/Repo.git/
+          --exclude file:///chemin/du/d%C3%A9p%C3%B4t.git/
+          --exclude file:///srv/git/project.git
+          '${{ steps.remap.outputs.root-dir }}'
+        output: lychee.md
+        jobSummary: true
+        fail: false
+        failIfEmpty: false # needed because its default overrides `fail = false`
+
+    - name: ${{ steps.lychee.outputs.exit_code != '0' && 'open or update' || 'maybe close' }} link checker issue
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const fs = await import('fs')
+          // GitHub issues can only have 64k characters in their body
+          const body = (s => {
+            if (s.length < 65535) return s
+            return s.replace(/^([^]{0,65000}\n)[^]*\n(.+)\n?$/, '$1\n[...]\n\n$2')
+          })(await fs.promises.readFile('lychee.md', 'utf8'))
+
+          const req = { owner: context.repo.owner, repo: context.repo.repo }
+          const issues = await (async () => {
+            const q = `"Link+Checker+Report"+in:title+is:issue+label:linkchecker+is:open+repo:${req.owner}/${req.repo}`
+            try {
+              return await github.rest.search.issuesAndPullRequests({ ...req, q, sort: 'created', per_page: 1 })
+            } catch (e) {
+              console.log(`Warning: ${e}; sleeping for 30 seconds and falling back to calling listForRepo()`)
+              await new Promise(r => setTimeout(r, 30000))
+
+              const issues = await github.rest.issues.listForRepo({...req, state: 'open', per_page: 100})
+              return {
+                data: {
+                  items: issues.data.filter(
+                    e => e.title === 'Link Checker Report'
+                    && e.labels.filter(l => l.name === 'linkchecker').length > 0
+                  )
+                }
+              }
+            }
+          })()
+
+          if (issues.data.items.length === 0) {
+            if ('${{ steps.lychee.outputs.exit_code }}' !== '0') {
+              await github.rest.issues.create({ ...req, title: 'Link Checker Report', body, labels: ['linkchecker'] })
+            }
+          } else {
+            req.issue_number = issues.data.items[0].number
+            await github.rest.issues.createComment({ ...req, body })
+            if ('${{ steps.lychee.outputs.exit_code }}' === '0') {
+              await github.rest.issues.update({ ...req, state: 'closed' })
+            } else {
+              // minimize outdated comments, if any
+              const query = `query ($owner: String!, $repo: String!, $issue_number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  issue(number: $issue_number) {
+                    comments(first: 100) {
+                      nodes {
+                        id
+                        isMinimized
+                        minimizedReason
+                        body
+                        author {
+                          login
+                        }
+                      }
+                    }
+                  }
+                }
+              }`
+              const commentIds = (await github.graphql(query, req)).repository.issue.comments.nodes
+              commentIds.pop() // leave the just-created comment alone
+              const markOutdatedCommentMutation = `mutation ($id: ID!, $classifier: ReportedContentClassifiers!) {
+                minimizeComment(input: { subjectId: $id, classifier: $classifier }) {
+                  clientMutationId
+                  minimizedComment {
+                    isMinimized
+                    minimizedReason
+                    viewerCanMinimize
+                  }
+                }
+              }`
+              for (const outdatedComment of commentIds.filter(
+                comment => comment.author.login === 'github-actions' && comment.isMinimized === false
+              )) {
+                await github.graphql(markOutdatedCommentMutation, {
+                  id: outdatedComment.id,
+                  classifier: 'OUTDATED',
+                })
+              }
+            }
+          }
+
+    - name: Install @playwright/test
+      shell: bash
+      run: npm install @playwright/test
+    - name: Edit /etc/hosts to map the deployed domain to GitHub
+      shell: bash
+      # This side-steps any caches that might be configured on the domain,
+      # and works even when the real server is not reachable from GitHub.
+      run: |
+        host="$(echo "$base_url" | sed -E 's|^https?://([^:/]+).*|\1|')"
+        sudo sh -c "echo '185.199.108.153 $host' >>/etc/hosts"
+    - name: Run Playwright tests
+      shell: bash
+      id: playwright
+      env:
+        PLAYWRIGHT_TEST_URL: ${{ env.base_url }}
+        # avoid test failures when HTTPS is enforced half-way through
+        PLAYWRIGHT_EXTERNAL_HTTPS: ${{ inputs.external-https }}
+      run: |
+        echo "result=$PLAYWRIGHT_TEST_URL" >>$GITHUB_OUTPUT &&
+        npx playwright test --project=chrome
+    - uses: actions/upload-artifact@v7
+      if: always() && steps.playwright.outputs.result != ''
+      with:
+        name: playwright-report
+        path: playwright-report/

@@ -1,0 +1,28 @@
+git-verify-tag(1)
+=================
+
+名称
+--
+git-verify-tag - 检查标签的 GPG 签名
+
+概述
+--
+[synopsis]
+git verify-tag [-v | --verbose] [--format=<format>] [--raw] <tag>...
+
+描述
+--
+Validates the gpg signature created by `git tag` in the tag objects listed on the command line.
+
+选项
+--
+`--raw`::
+	将原始 gpg 状态输出打印到标准错误，而不是正常的人类可读输出。
+
+`-v`::
+`--verbose`::
+	在验证之前打印标记对象的内容。
+
+GIT
+---
+属于 linkgit:git[1] 文档

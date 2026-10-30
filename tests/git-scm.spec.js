@@ -1,0 +1,410 @@
+const { test, expect, selectors, devices } = require('@playwright/test')
+
+const url = process.env.PLAYWRIGHT_TEST_URL
+  ? process.env.PLAYWRIGHT_TEST_URL.replace(/[^/]$/, '$&/')
+  : 'https://git-scm.com/'
+
+// Whenever a test fails, attach a screenshot to diagnose failures better
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status !== testInfo.expectedStatus) {
+    const screenshotPath =
+      testInfo.outputPath(`${testInfo.line}-${testInfo.column}-failure.png`)
+    testInfo.attachments.push({
+      name: 'screenshot',
+      path: screenshotPath,
+      contentType: 'image/png'
+    })
+    await page.screenshot({
+      path: screenshotPath,
+      timeout: 15000
+    })
+  }
+})
+
+if (process.platform === 'win32') test.setTimeout(60_000) // give it some time
+
+// Navigating to a page that immediately redirects elsewhere via
+// `<meta http-equiv="refresh" content="0; url=...">` occasionally races with
+// Chrome's navigation handling: the in-flight load is aborted and the page is
+// left stranded on the internal error page `chrome-error://chromewebdata/`.
+// As that is a committed navigation, merely polling for the target URL cannot
+// recover from it, the navigation has to be re-triggered. This is a known,
+// transient Playwright/Chromium issue (see e.g.
+// https://github.com/microsoft/playwright/issues/19161), so retry the whole
+// navigate-and-assert dance until the expected URL is reached.
+async function gotoAndExpectRedirect(page, gotoURL, expectedURL) {
+  await expect(async () => {
+    await page.goto(gotoURL)
+    await expect(page).toHaveURL(expectedURL)
+    // Retry every second for up to 15 seconds in total
+  }).toPass({ intervals: [1_000], timeout: 15_000 });
+}
+
+test('generator is Hugo', async ({page}) => {
+  await page.goto(url)
+  await expect(page.locator('meta[name="generator"]')).toHaveAttribute('content', /^Hugo /)
+})
+
+async function pretendPlatform(page, browserName, userAgent, platform) {
+  if (browserName !== 'chromium') {
+    await page.context().addInitScript({
+      content: `Object.defineProperty(navigator, 'platform', { get: () => '${platform}' })`
+    })
+  } else {
+    // As of time of writing, Chromium on Linux (but not on Windows or macOS)
+    // refuses to let the `navigator.platform` attribute to be overridden via
+    // `Object.defineProperty()`, therefore we use the Chrome DevTools Protocol
+    // with that browser (and only with that browser because it is proprietary
+    // to that browser).
+    const cdpSession = await page.context().newCDPSession(page)
+    await cdpSession.send('Emulation.setUserAgentOverride', { platform, userAgent })
+  }
+}
+
+test.describe('Windows', () => {
+  const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+  test.use({ userAgent })
+
+  test('install link', async ({ page, browserName }) => {
+    await pretendPlatform(page, browserName, userAgent, 'Windows')
+    await page.goto(url)
+    await expect(page.getByRole('link', { name: 'Install for Windows' })).toBeVisible()
+  })
+})
+
+test.describe('macOS', () => {
+  const userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15'
+  test.use({ userAgent })
+
+  test('install link', async ({ page, browserName }) => {
+    await pretendPlatform(page, browserName, userAgent, 'Mac OS X')
+    await page.goto(url)
+    await expect(page.getByRole('link', { name: 'Install for Mac' })).toBeVisible()
+  })
+})
+
+test.describe('Linux', () => {
+  const userAgent = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0'
+  test.use({ userAgent })
+
+  test('install link', async ({ page, browserName }) => {
+    await pretendPlatform(page, browserName, userAgent, 'Linux')
+    await page.goto(url)
+    await expect(page.getByRole('link', { name: 'Install for Linux' })).toBeVisible()
+  })
+})
+
+test('search', async ({ page }) => {
+  await page.goto(url)
+
+  // Full search for "commit"
+  const searchBox = page.getByPlaceholder('Type / to search entire site…')
+  await searchBox.fill('commit')
+  await searchBox.press('Enter')
+
+  await expect(page).toHaveURL(/\/search\/results\?search=commit/)
+
+  await page.goto(url)
+
+  // Search for "commit"
+  await searchBox.fill('commit')
+  await searchBox.press('Shift')
+
+  // Expect the div to show up
+  const showAllResults = page.getByText('Show all results...')
+  await expect(showAllResults).toBeVisible()
+
+  // Expect the first search result to be "git-commit"
+  const searchResults = page.locator('#search-results')
+  await expect(searchResults.getByRole("link")).not.toHaveCount(0)
+  await expect(searchResults.getByRole("link").nth(0)).toHaveText('Show all results...')
+  await expect(searchResults.getByRole("link").nth(1)).toHaveText('git-commit')
+
+  // Expect the search page to show up
+  await searchBox.press('Enter')
+  await expect(page).toHaveURL(/\/search/)
+  const filters = await page.getByRole('group', { name: 'Filters' })
+  await expect(filters).toBeVisible()
+  await expect(filters.filter({ hasText: 'Category' })).toBeVisible()
+
+  await expect(page.getByText(/results for commit/)).toContainText(/^\d+ results for commit$/)
+
+  const searchLinks = await page
+    .getByRole('listItem')
+    .filter({ has: page.getByRole('link', { name: 'commit' }) })
+  await expect(searchLinks).not.toHaveCount(0)
+
+  await expect(page.getByRole('button', { name: 'Load more results' })).toBeVisible()
+
+  // On localized pages, the search results should be localized as well
+  await page.goto(`${url}docs/git-commit/fr`)
+  await searchBox.fill('add')
+  await searchBox.press('Shift')
+  await expect(searchResults.getByRole("link").nth(0)).toHaveAttribute('href', /\/search\/results\?search=add&language=fr$/)
+  await expect(searchResults.getByRole("link").nth(1)).toHaveAttribute('href', /\/docs\/git-add\/fr(\.html)?$/)
+
+  // pressing the Enter key should navigate to the full search results page
+  await searchBox.press('Enter')
+  await expect(page).toHaveURL(/\/search.*language=fr/)
+})
+
+test('manual pages', async ({ page }) => {
+  await page.goto(`${url}docs/git-config`)
+
+  // The summary follows immediately after the heading "NAME", which is the first heading on the page
+  const summary = page.locator('xpath=//h2/following-sibling::*[1]').first()
+  await expect(summary).toHaveText('git-config - Get and set repository or global options')
+  await expect(summary).toBeVisible()
+
+  // Verify that the drop-downs are shown when clicked
+  const previousVersionDropdown = page.locator('#previous-versions-dropdown')
+  await expect(previousVersionDropdown).toBeHidden()
+  await page.getByRole('link', { name: 'Latest version' }).click()
+  await expect(previousVersionDropdown).toBeVisible()
+
+  const topicsDropdown = page.locator('#topics-dropdown')
+  await expect(topicsDropdown).toBeHidden()
+  await page.getByRole('link', { name: 'Topics' }).click()
+  await expect(topicsDropdown).toBeVisible()
+  await expect(previousVersionDropdown).toBeHidden()
+
+  const languageDropdown = page.locator('#l10n-versions-dropdown')
+  await expect(languageDropdown).toBeHidden()
+  await page.getByRole('link', { name: 'English' }).click()
+  await expect(languageDropdown).toBeVisible()
+  await expect(topicsDropdown).toBeHidden()
+  await expect(previousVersionDropdown).toBeHidden()
+
+  // Verify that the language is changed when a different language is selected
+  await page.getByRole('link', { name: 'Français' }).click()
+  await expect(summary).toHaveText('git-config - Lire et écrire les options du dépôt et les options globales')
+  await expect(summary).not.toHaveText('git-config - Get and set repository or global options')
+
+  // links to other manual pages should stay within the language when possible,
+  // but fall back to English if the page was not yet translated
+  const gitRevisionsLink = page.getByRole('link', { name: 'gitrevisions[7]' })
+  await expect(gitRevisionsLink).toBeVisible()
+  await expect(gitRevisionsLink).toHaveAttribute('href', /\/docs\/gitrevisions\/fr$/)
+  await gitRevisionsLink.click()
+  await expect(page).toHaveURL(/\/docs\/gitrevisions$/)
+
+  // Ensure that the French mis-translation of `git remote renom` is not present
+  await page.goto(`${url}docs/git-remote/fr`)
+  const synopsis = page.locator('xpath=//h2[contains(text(), "SYNOPSIS")]/following-sibling::*[1]').first()
+  await expect(synopsis).toHaveText(/git remote rename.*<ancien> <nouveau>/)
+  await expect(synopsis).not.toHaveText(/git remote renom.*<ancien> <nouveau>/)
+})
+
+test('git manual lists commands', async ({ page }) => {
+  await page.goto(`${url}docs/git`)
+
+  for (const [section, command] of [
+    ['main_porcelain_commands', 'git-add[1]'],
+    ['ancillary_commands', 'git-config[1]'],
+    ['ancillary_commands', 'git-annotate[1]'],
+    ['interacting_with_others', 'git-archimport[1]'],
+    ['manipulation_commands', 'git-apply[1]'],
+    ['interrogation_commands', 'git-cat-file[1]'],
+    ['syncing_repositories', 'git-daemon[1]'],
+    ['syncing_repositories', 'git-http-fetch[1]'],
+    ['internal_helper_commands', 'git-check-attr[1]'],
+    ['guides', 'gitcore-tutorial[7]'],
+    ['repository_command_and_file_interfaces', 'gitattributes[5]'],
+    [
+      'file_formats_protocols_and_other_developer_interfaces',
+      'gitformat-bundle[5]'
+    ]
+  ]) {
+    const commands = page.locator(`#_${section}`)
+      .locator('xpath=..').locator('dt')
+    await expect(commands.getByRole('link', { name: command, exact: true }))
+      .toBeVisible()
+  }
+})
+
+test('anchor links in manual pages', async ({ page }) => {
+  // Test that anchor links work without HTML tags
+  const anchor = '#Documentation/git-clone.txt---recurse-submodulesltpathspecgt'
+  await page.goto(`${url}docs/git-clone${anchor}`)
+
+  // Find the anchored element that should be scrolled into view
+  const anchoredElement = await page.getByText(/^--recurse-submodules.*pathspec/)
+  await expect(anchoredElement).toBeVisible()
+})
+
+test('book', async ({ page }) => {
+  await gotoAndExpectRedirect(page, `${url}book/`, `${url}book/en/v2`)
+
+  await gotoAndExpectRedirect(page, `${url}book`, `${url}book/en/v2`)
+
+  // the repository URL is correct
+  await expect(page.getByRole('link', { name: 'hosted on GitHub' }))
+    .toHaveAttribute('href', 'https://github.com/progit/progit2')
+
+  // Navigate to the first section
+  await page.getByRole('link', { name: 'Getting Started' }).click()
+  await expect(page).toHaveURL(/Getting-Started-About-Version-Control/)
+
+  // the repository URL is still correct
+  await expect(page.getByRole('link', { name: 'hosted on GitHub' }))
+    .toHaveAttribute('href', 'https://github.com/progit/progit2')
+
+  // Verify that the drop-down is shown when clicked
+  const chaptersDropdown = page.locator('#chapters-dropdown')
+  await expect(chaptersDropdown).toBeHidden()
+  await page.getByRole('link', { name: 'Chapters' }).click()
+  await expect(chaptersDropdown).toBeVisible()
+
+  // Only the current section is marked as active
+  await expect(chaptersDropdown.getByRole('link', { name: /About Version Control/ })).toHaveClass(/active/)
+  await expect(chaptersDropdown.locator('.active')).toHaveCount(1)
+
+  // Navigate to the French translation
+  if (await page.evaluate(() => matchMedia('(max-width: 940px)').matches)) {
+    // On small screens, the links to the translated versions of the ProGit book
+    // are hidden by default, and have to be "un-hidden" by clicking on the
+    // sidebar button first.
+    await page.locator('.sidebar-btn').click();
+  }
+  await page.getByRole('link', { name: 'Français' }).click()
+  await expect(page).toHaveURL(/book\/fr/)
+  await expect(page.locator('.inner h1')).toHaveText(/Démarrage rapide/)
+  await expect(page.getByRole('link', { name: 'Démarrage rapide' })).not.toBeVisible()
+
+  // the repository URL now points to the French translation
+  await expect(page.getByRole('link', { name: 'hosted on GitHub' }))
+    .toHaveAttribute('href', 'https://github.com/progit/progit2-fr')
+
+  // Navigate to a page whose URL contains a question mark
+  await page.goto(`${url}book/az/v2/Başlanğıc-Git-Nədir?`)
+  if (process.platform === 'win32' && process.env.PLAYWRIGHT_TEST_URL?.startsWith('http://localhost')) {
+    await expect(page).toHaveURL(/Ba%C5%9Flan%C4%9F%C4%B1c-Git-N%C9%99dir\?/)
+  } else {
+    await expect(page).toHaveURL(/Ba%C5%9Flan%C4%9F%C4%B1c-Git-N%C9%99dir%3F/)
+  }
+  await expect(page.getByRole('document')).toHaveText(/Snapshot’lar, Fərqlər Yox/)
+
+  // the repository URL now points to the Azerbaijani translation
+  await expect(page.getByRole('link', { name: 'hosted on GitHub' }))
+    .toHaveAttribute('href', 'https://github.com/progit2-aze/progit2')
+})
+
+test('404', async ({ page }) => {
+  await page.goto(`${url}does-not.exist`)
+
+  await expect(page.locator('.inner h1')).toHaveText(`That page doesn't exist.`)
+
+  // the 404 page should be styled
+  await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute('href', /application(\.min)?(\.[0-9a-f]+)?\.css$/)
+
+  // the search box is shown
+  await expect(page.locator('#search-text')).toBeVisible()
+
+  // the usual navbar is shown
+  await expect(page.getByRole('link', { name: 'Community' })).toBeVisible()
+})
+
+test('sidebar', async ({ page }) => {
+  await page.goto(`${url}community`);
+
+  test.skip(!await page.evaluate(() => matchMedia('(max-width: 940px)').matches),
+    'not a small screen');
+
+  const sidebarButton = page.locator('.sidebar-btn');
+  await expect(sidebarButton).toBeVisible();
+  await sidebarButton.click();
+
+  const about = page.getByRole('link', { name: 'About', exact: true });
+  await expect(about).toBeVisible();
+  await about.click();
+  await expect(page.getByRole('heading', { name: 'About - Branching and Merging' })).toBeVisible();
+});
+
+test('dark mode', async({ page }) => {
+  // Helper: returns relative luminance in range [0, 1]
+  const getPageBrightness = async () => {
+    const screenshot = await page.screenshot({ type: 'png' });
+    const base64 = screenshot.toString('base64');
+
+    return await page.evaluate((b64) => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${b64}`;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = canvas.height = 1;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, 1, 1);
+          const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+
+          // Calculate brightness, for more details, see
+          // https://en.wikipedia.org/wiki/Relative_luminance#Relative_luminance_and_%22gamma_encoded%22_colorspaces
+          const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+          // Normalize to [0, 1]
+          resolve(luminance / 255);
+        };
+        img.onerror = () => resolve(-1); // error indicator
+      });
+    }, base64);
+  };
+
+  await page.setViewportSize(devices['iPhone X'].viewport);
+  await page.goto(url);
+
+  // Ensure consistent test state
+  await page.evaluate(() => {
+    document.querySelector('#tagline').innerHTML = '--dark-mode-for-dark-times';
+  });
+
+  const darkModeButton = page.locator('#dark-mode-button');
+
+  // 1. Light mode
+  const lightBrightness = await getPageBrightness();
+  expect(lightBrightness).toBeCloseTo(0.85, 0.1); // e.g., 0.75–0.95
+
+  // 2. Toggle to dark mode
+  await darkModeButton.click();
+  const darkBrightness = await getPageBrightness();
+  expect(darkBrightness).toBeCloseTo(0.25, 0.1); // e.g., 0.15–0.35
+
+  // 3. Verify dark < light
+  expect(darkBrightness).toBeLessThan(lightBrightness);
+
+  // --- Test system preference: prefers-color-scheme: dark ---
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  await page.reload();
+  await page.evaluate(() => {
+    document.querySelector('#tagline').innerHTML = '--dark-mode-for-dark-times';
+  });
+
+  // Should start in dark mode
+  const autoDarkBrightness = await getPageBrightness();
+  expect(autoDarkBrightness).toBeCloseTo(0.25, 0.1);
+
+  // Toggle to light
+  await darkModeButton.click();
+  const autoLightBrightness = await getPageBrightness();
+  expect(autoLightBrightness).toBeCloseTo(0.85, 0.1);
+});
+
+test('right-side alignment of header and content areas', async ({ page }) => {
+  await page.goto(`${url}about`)
+
+  // The sidebar (aside) and #content sit inside #content-wrapper (display: flex).
+  // Their combined widths must fill the container so the right edges align.
+  const containerBox = await page.locator('#content-wrapper').boundingBox()
+  const contentBox = await page.locator('#content').boundingBox()
+
+  expect(containerBox).not.toBeNull()
+  expect(contentBox).not.toBeNull()
+
+  const containerRight = containerBox.x + containerBox.width
+  const contentRight = contentBox.x + contentBox.width
+
+  expect(Math.abs(containerRight - contentRight)).toBeLessThanOrEqual(1)
+})

@@ -1,0 +1,103 @@
+@import "variables";
+@import "mixins";
+
+#documentation #main {
+  p {
+    em {
+      font-family: $fixed-width-font-family !important;
+      font-variant-ligatures: none;
+      font-style: normal;
+      font-weight: bold;
+      color: var(--fixed-width-font-color);
+    }
+
+    tt {
+      @extend code !optional;
+      display: inline;
+      padding: 1px;
+    }
+  }
+
+  p.nutshell {
+    padding: 1em;
+    background-color: #e8e7dd;
+  }
+
+  .literalblock {
+    .content pre tt {
+      display: block;
+      padding: 2px;
+      font-family: $fixed-width-font-family !important;
+      font-variant-ligatures: none;
+      background-color: #eee0b5;
+    }
+    margin-bottom: 15px;
+  }
+
+  dt.hdlist1 {
+    font-family: $fixed-width-font-family !important;
+    font-variant-ligatures: none;
+  }
+
+  // Man pages
+  div.verseblock {
+    pre.content {
+      padding: 1em;
+      margin-bottom: 1em;
+      font-family: $fixed-width-font-family !important;
+      line-height: $fixed-width-line-height;
+      font-variant-ligatures: none;
+      color: var(--fixed-width-font-color);
+      word-wrap: break-word;       /* Internet Explorer 5.5+ */
+      white-space: pre;
+      white-space: pre-wrap;       /* css-3 */
+
+      em {
+        font-weight: bold;
+        font-style: normal;
+      }
+
+      code {
+        margin-bottom: 0;
+        border: none;
+        padding-left: 0;
+        padding-right: 0;
+      }
+    }
+  }
+
+  .quoteblock {
+    padding-left: 1em;
+    margin-left: 1em;
+    border-left: 5px solid var(--base-border-color);
+
+    .content {
+      .paragraph p {
+        color: var(--light-font-color);
+      }
+    }
+  }
+
+  .admonitionblock {
+    table {
+      margin-bottom: 1em;
+
+      td {
+        padding: 0 1em;
+
+        .title {
+          font-weight: bold;
+          color: var(--orange);
+        }
+
+        &:first-child {
+          border-right: solid 2px var(--base-border-color);
+        }
+      }
+    }
+  }
+
+  #footer {
+    color: var(--light-font-color);
+  }
+}

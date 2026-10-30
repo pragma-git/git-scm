@@ -1,0 +1,19 @@
+@mixin logo20($infix: '') {
+    img[alt="Git"] {
+        filter: unset;
+        content: url('./images/logo20' + $infix + '.svg');
+    }
+}
+
+:root[data-celebration="git-turns-20"] {
+    @include logo20
+    &[data-theme="dark"] {
+        @include logo20($infix: '.dark-mode')
+    }
+    @media screen and (prefers-color-scheme: dark) {
+        @include logo20
+        &:not([data-theme="light"]) {
+            @include logo20($infix: '.dark-mode')
+        }
+    }
+}

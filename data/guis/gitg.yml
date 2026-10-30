@@ -1,0 +1,11 @@
+---
+name: "gitg"
+project_url: "https://gitlab.gnome.org/GNOME/gitg"
+image_tag: "images/guis/gitg@2x.png"
+platforms:
+  - "Windows"
+  - "Linux"
+price: "Free"
+license: "GNU GPL"
+order: 14
+---

@@ -1,0 +1,28 @@
+git-verify-commit(1)
+====================
+
+NOME
+----
+git-verify-commit - Verifique a assinatura GPG dos commits
+
+RESUMO
+------
+[synopsis]
+git verify-commit [-v | --verbose] [--raw] <commit>...
+
+DESCRIÇÃO
+---------
+Validates the GPG signature created by `git commit -S` on the commit objects given on the command line.
+
+OPÇÕES
+------
+`--raw`::
+	Imprima a condição bruta do gpg na saída de erro predefinida em vez de uma saída legível para as pessoas.
+
+`-v`::
+`--verbose`::
+	Imprima o conteúdo do objeto commit antes de validá-lo.
+
+GIT
+---
+Parte do conjunto linkgit:git[1]

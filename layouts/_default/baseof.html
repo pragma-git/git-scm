@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+{{ if isset .Params "redirect_to" }}
+{{ $redirect_to := .Params.redirect_to }}
+{{ if not (hasPrefix $redirect_to "https://") }}
+{{ $redirect_to = relURL $redirect_to }}
+{{ end }}
+<html lang="en">
+ <head>
+  <meta charset="utf-8">
+  <title>Redirecting&hellip;</title>
+  <link rel="canonical" href="{{ $redirect_to }}">
+  <meta http-equiv="refresh" content="0; url={{ $redirect_to }}">
+  <meta name="robots" content="noindex">
+ </head>
+ <body>
+  <script>window.location.replace(document.querySelector("link[rel='canonical']").href + window.location.search + window.location.hash)</script>
+  <h1>Redirecting&hellip;</h1>
+  <a href="{{ $redirect_to }}">Click here if you are not redirected.</a>
+ </body>
+</html>
+{{ else }}
+{{ $lang := "en" }}
+{{ if isset .Params "lang" }}
+{{ $lang = .Params.lang }}
+{{ else if and (isset .Params "book") (isset .Params.book "language_code") }}
+{{ $lang = .Params.book.language_code }}
+{{ end }}
+<html lang="{{ $lang }}">
+
+{{ $section := "" }}
+{{ if isset .Params "section" }}
+{{ $section = .Params.section }}
+{{ else if (eq .Page.Path "/docs") }}
+{{ $section = "documentation" }}
+{{ else if (isset .Page "Section") }}
+{{ $section = .Page.Section }}
+{{ else if (or (eq .Page.Type "doc") (eq .Page.Type "docs") (eq .Page.Type "video")) }}
+{{ $section = "documentation" }}
+{{ else if (isset .Page "Type") }}
+{{ $section = .Page.Type }}
+{{ else }}
+{{ warnf "No section found in %s" (.Page.Path | jsonify) }}
+{{ end }}
+{{ .Scratch.Set "section" $section }}
+<head>
+  <script type="text/javascript">
+    // Check for stored user dark/light mode preference, if any
+    const currentTheme = localStorage.getItem("theme")
+    if (currentTheme) {
+      // Check dark mode preference at the OS level
+      const prefersDarkScheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+      if (prefersDarkScheme === (currentTheme === "dark")) localStorage.removeItem("theme")
+      else if ((prefersDarkScheme && currentTheme === "light")
+        || (!prefersDarkScheme && currentTheme === "dark")) {
+	document.documentElement.dataset.theme = currentTheme
+      }
+    }
+  </script>
+
+  <meta charset='utf-8'>
+  <meta content='IE=edge,chrome=1' http-equiv='X-UA-Compatible'>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>{{ .Page.Title | default "Git" }}{{ if (isset .Params "subtitle") }} - {{ .Params.subtitle }}{{ end }}</title>
+
+  <link href="{{ relURL "favicon.ico" }}" rel='shortcut icon' type='image/x-icon'>
+
+  {{ $style := resources.Get "sass/application.scss" | resources.ExecuteAsTemplate "application.scss" . | css.Sass | resources.Minify | fingerprint }}
+  <link rel="stylesheet" href="{{ $style.RelPermalink }}"{{ if (hasPrefix .Site.BaseURL "https://") }} integrity="{{ $style.Data.Integrity }}"{{ end }}>
+  <script src="{{ relURL "js/modernizr.js" }}"></script>
+  <!--[if (gte IE 6)&(lte IE 8)]>
+  <script src="{{ relURL "js/selectivizr-min.js" }}"></script>
+  <![endif]-->
+
+</head>
+
+<body id="{{ $section }}">
+
+  <div class="inner">
+    {{ partial "header.html" . }}
+  </div> <!-- .inner -->
+
+  {{ if (isset .Params "is_site_root") }}
+    {{ partial "masthead.html" . }}
+    <div id="content-wrapper">
+      <div class="inner">
+        {{ partial "site-root.html" . }}
+        {{ partialCached "footer.html" . }}
+      </div> <!-- .inner -->
+    </div> <!-- #content-wrapper -->
+  {{ else if (isset .Params "book") }}
+    {{ .Scratch.Set "book" (index hugo.Data.book .Params.book.language_code) }}
+    <div class="inner">
+      <div id="content-wrapper">
+        {{ partial "sidebar.html" . }}
+        <div id="content"{{ if eq "fa" .Params.book.language_code }} dir="rtl"{{ end }}>
+          {{ if isset .Params.book "front_page" }}
+            {{ partial "book-front-page.html" . }}
+          {{ else }}
+          <div id="book-chapters">
+            {{ partial "chapters.html" . }}
+
+            <span class="light" id="edition">
+              2nd Edition
+            </span>
+          </div>
+          <div id="main" data-pagefind-filter="category:book" data-pagefind-meta="category:Book" data-pagefind-weight="0.05" data-pagefind-body class="book edition2">
+            <h1>{{ .Params.book.section.cs_number }} {{ .Params.book.chapter.title }} - {{ .Params.book.section.title }}</h1>
+            <div>
+              {{ .Content }}
+            </div>
+          </div>
+          {{ end }}
+        </div>
+      </div>
+      {{ partialCached "footer.html" . }}
+    </div>
+  {{ else if (isset .Params "docname") }}
+    <div class="inner">
+      <div id="content-wrapper">
+        {{ partial "sidebar.html" . }}
+        <div id="content">
+          <div id='reference-version'>
+            {{ partial "ref/languages.html" . }}
+            {{ partial "ref/topics.html" . }}
+            {{ partial "ref/versions.html" . }}
+          </div>
+
+          <!-- older manual page versions are less interesting and need to be excluded from the search -->
+          {{ $include_in_search := (or (not (isset .Params "docname")) (isset .Params "latest-changes") (isset .Params "lang")) }}
+          <div id="main"{{ if $include_in_search }} data-pagefind-filter="category:reference" data-pagefind-meta="category:Reference" data-pagefind-weight="0.05" data-pagefind-body{{ end }}>
+	    {{ if (and (isset .Params "docname") (in hugo.Data.docs_extra.git_project_specific .Params.docname)) }}
+	    <div class="callout">
+	    <h2>This information is specific to the Git project</h2>
+	    <p>Please note that this information is only relevant to you if you plan on <a href="{{ relURL "community#contributing" }}">contributing to the Git project itself</a>. It is in no shape or form required reading for regular Git users.</p>
+	    </div>
+	    {{ end }}
+            {{ .Content }}
+            {{ $match := findRESubmatch "(?s)>NAME</h2>.*?<p[^>]*>(git-)?([^ ]+)" .Content 1 }}
+            {{ if (eq ($match | len) 1) }}
+              {{ $command_name := (index (index $match 0) 2) }}
+              {{ $weight := cond (strings.Contains $command_name "-") 7 10 }}
+              <!-- boost the command name in the search -->
+              <h3 hidden="true" data-pagefind-weight="{{ $weight }}">{{ $command_name }}</h3>
+            {{ end }}
+          </div>
+        </div>
+      </div>
+      {{ partialCached "footer.html" . }}
+      <script src="{{ relURL "js/nanopop.umd.js" }}"></script>
+      <script src="{{ relURL "js/glossary.js" }}"></script>
+    </div>
+  {{ else }}
+    <div class="inner">
+      <div id="content-wrapper">
+        {{ partial "sidebar.html" . }}
+        <div id="content" data-pagefind-filter="category:{{ $section }}" data-pagefind-weight="0.05" data-pagefind-body>
+          {{ if (eq .Page.Path "/docs") }}
+            {{ partial "ref/index.html" . }}
+          {{ else if isset .Params "video_title" }}
+            <div id="main">
+              <h1>{{ .Params.category }} Episode {{ .Params.episode }}</h1>
+              <h2>{{ .Params.video_title }}</h2>
+
+              <div id="video-container">
+                <iframe src="https://player.vimeo.com/video/{{ .Params.ext_id }}?title=0&amp;byline=0&amp;portrait=0&amp;color=f14e32" width="635" height="360" frameborder="0" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe>
+              </div>
+              <div class="bottom-nav" style="display: block;">
+                {{ $prev := where .Site.RegularPages "Params.episode" (sub .Params.episode 1) }}
+                {{ with index $prev 0 }}
+                  <a class="previous" href="{{ .RelPermalink }}">← Previous</a>
+                {{ end }}
+                {{ $next := where .Site.RegularPages "Params.episode" (add .Params.episode 1) }}
+                {{ with index $next 0 }}
+                  <a class="next" href="{{ .RelPermalink }}">Next →</a>
+                {{ end }}
+              </div>
+
+            </div>
+          {{ else }}
+            {{ .Content }}
+          {{ end }}
+        </div>
+      </div>
+      {{ if eq (.Scratch.Get "section") "search" }}<script src="{{ relURL "pagefind/pagefind-ui.js" }}"></script>{{ end }}
+      {{ partialCached "footer.html" . }}
+    </div>
+  {{ end }}
+
+</body>
+{{ if .Page.Store.Get "hasGraphviz" -}}
+<script src="{{ relURL "js/viz-global.js" }}"> </script>
+<script type="text/javascript">Graphviz.render();</script>
+{{ end -}}
+</html>
+{{ end }}

@@ -1,0 +1,16 @@
+<footer>
+  <div class="site-source">
+    <a href="{{ relURL "site" }}">About this site</a><br>
+    Patches, suggestions, and comments are welcome.
+  </div>
+  <div class="sfc-member">
+    Git is a member of <a href="{{ relURL "sfc" }}">Software Freedom Conservancy</a>
+  </div>
+</footer>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://code.jquery.com/ui/1.14.1/jquery-ui.min.js"></script>
+<script src="{{ relURL "js/jquery.defaultvalue.js" }}"></script>
+<script src="{{ relURL "js/session.min.js" }}"></script>
+{{ $js := resources.Get "js/application.js" | resources.ExecuteAsTemplate "js/application.js" . | resources.Minify | fingerprint }}
+<script src="{{ $js.RelPermalink }}"{{ if (hasPrefix .Site.BaseURL "https://") }} integrity="{{ $js.Data.Integrity }}"{{ end }}></script>

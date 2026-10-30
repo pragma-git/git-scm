@@ -1,22 +1,103 @@
 name: CI
-on: pull_request
+on: [pull_request]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v6
 
-    - name: ruby setup
-      uses: ruby/setup-ruby@v1
+    - name: configure Hugo and Pagefind version
+      run: |
+        set -x &&
+        echo "HUGO_VERSION=$(sed -n 's/^ *hugo_version: *//p' <hugo.yml)" >>$GITHUB_ENV
+        echo "PAGEFIND_VERSION=$(sed -n 's/^ *pagefind_version: *//p' <hugo.yml)" >>$GITHUB_ENV
+
+    - name: install Hugo ${{ env.HUGO_VERSION }}
+      run: |
+        set -x &&
+        curl -Lo /tmp/hugo.deb https://github.com/gohugoio/hugo/releases/download/v$HUGO_VERSION/hugo_extended_${HUGO_VERSION}_linux-amd64.deb &&
+        sudo dpkg -i /tmp/hugo.deb
+
+    - name: run Hugo to build the pages
+      run: hugo
+
+    - name: ensure that there are no absolute URLs
+      run: |
+        set -x
+        if git grep --untracked --no-exclude-standard "\\(href\|src\) *= *[\"']/" \
+          -- public/ ':^public/js/jquery*' >/tmp/abs-urls.txt
+        then
+          cat /tmp/abs-urls.txt
+          exit 1
+        fi
+
+    - uses: actions/setup-node@v5
+    - name: pre-render the Graphviz diagrams
+      run: |
+        npm install node-html-parser &&
+        node ./script/graphviz-ssr.js
+
+    - name: Install @playwright/test
+      run: npm install @playwright/test
+    - name: offer PDF version of the cheat sheet
+      run: node script/html-to-pdf.js -i public/cheat-sheet.html
+
+    - name: run Pagefind ${{ env.PAGEFIND_VERSION }} to build the search index
+      run: npx -y pagefind@${{ env.PAGEFIND_VERSION }} --site public --write-playground
+
+    - name: build tar archive
+      run: cd public && tar czvf ../pages.tar.gz *
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v7
       with:
-        bundler-cache: true
+        name: pages
+        path: pages.tar.gz
 
-    - name: rails setup
-      run: bundle exec rake db:create db:schema:load
+    - name: verify search results
+      run: |
+        set -x
+        res=0
+        for term in commit config log rev-parse
+        do
+          node ./script/run-pagefind.js "$term" | tee search.results >&2
+          grep "^1. /docs/git-$term\\.html" search.results || {
+            echo "::error::Search for $term failed to show the manual page first" >&2
+            res=1
+          }
+        done
+        exit $res
 
-    - name: rubocop
-      run: bundle exec rubocop -P
+    - name: check for broken links
+      id: lychee
+      uses: lycheeverse/lychee-action@v2
+      with:
+        args: >-
+          --offline
+          --remap '^https?://git-scm.com(.*) file://'"$PWD"'/public$1'
+          --fallback-extensions html
+          --exclude file:///path/to/repo.git/
+          --exclude file:///caminho/para/o/reposit%C3%B3rio.git/
+          --exclude file:///ruta/a/repositorio.git/
+          --exclude file:///sl%C3%B3%C3%B0/til/hirsla.git/
+          --exclude file:///Pfad/zum/Repo.git/
+          --exclude file:///chemin/du/d%C3%A9p%C3%B4t.git/
+          --exclude file:///srv/git/project.git
+          --root-dir public/
+          public/
+        output: lychee.md
+        jobSummary: true
 
-    - name: rspec
-      run: bundle exec rspec
+    - name: Run Playwright tests
+      id: playwright
+      env:
+        PLAYWRIGHT_TEST_URL: http://localhost:5000/
+      run: |
+        echo "result=$PLAYWRIGHT_TEST_URL" >>$GITHUB_OUTPUT &&
+        npx playwright test --project=chrome
+    - uses: actions/upload-artifact@v7
+      if: always() && steps.playwright.outputs.result != ''
+      with:
+        name: playwright-report
+        path: playwright-report/

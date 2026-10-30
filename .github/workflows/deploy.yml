@@ -1,0 +1,30 @@
+name: Deploy to GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - gh-pages
+
+jobs:
+  deploy:
+    concurrency:
+      group: "pages"
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write # to deploy to GitHub Pages
+      id-token: write # to verify that the deployment source is legit
+      issues: write # to open tickets upon broken links
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: deploy to GitHub Pages
+        id: deploy
+        uses: ./.github/actions/deploy-to-github-pages
+        with:
+          cloudflare-token: ${{ secrets.CLOUDFLARE_TOKEN }}
+          cloudflare-zone: ${{ secrets.CLOUDFLARE_ZONE }}
+          external-https: ${{ vars.EXTERNAL_HTTPS }}

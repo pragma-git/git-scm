@@ -1,0 +1,615 @@
+.edition2 {
+  /* Book code colors (light mode defaults) */
+  --book-code-color: #333;
+  --book-code-bg: #eee;
+  --book-code-border: #f5f5f5;
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    padding-top: 80px;
+    margin: 0 auto;
+    max-width: 700px;
+  }
+
+  /* general blocks */
+
+  p,
+  dd { /* general text styles */
+    font-family: sans-serif;
+    font-size: 14px;
+    line-height: 22px;
+    text-indent: 0;
+  }
+
+  section[data-type="preface"] > h1 + p,
+  div[data-type="part"] > h1 + p,
+  section[data-type="chapter"] > h1 + p,
+  section[data-type="chapter"] > h1 + div.author p,
+  section[data-type="sect1"] > h1 + p,
+  section[data-type="sect2"] > h2 + p,
+  section[data-type="sect3"] > h3 + p {
+    text-indent: 0px; /* first paragraph following a heading has no indent */
+  }
+
+  /* general inlines */
+
+  p a {
+    display: inline;
+  }
+
+  /* frontmatter */
+
+  section[data-type="titlepage"] h1 {
+    font-family: serif;
+  }
+
+  section[data-type="titlepage"] h2,
+  section[data-type="copyright-page"] h1 {
+    font-family: sans-serif;
+  }
+
+  section[data-type="halftitlepage"] {
+    display: none;
+  }
+
+  section[data-type="titlepage"] {
+    text-align: left;
+    page-break-after: always;
+  }
+
+  section[data-type="titlepage"] h1 {
+    padding-bottom: 10px;
+    margin-top: 100px;
+    border-bottom: 1px solid #333;
+  }
+
+  section[data-type="titlepage"] h1 {
+    font-size: 2em;
+    line-height: 120%;
+  }
+
+  section[data-type="titlepage"] h2 {
+    margin-top: 20px;
+    font-size: 1.2em;
+    line-height: 120%;
+  }
+
+  /* styling and positioning for author names and other text */
+
+  section[data-type="titlepage"] p:first-of-type {
+    margin-top: 82pt;
+  }
+
+  section[data-type="titlepage"] p {
+    float: none;
+    margin-top: 0;
+    margin-bottom: 0;
+    font-family: sans-serif;
+    font-size: 13pt;
+    line-height: 16pt;
+    text-indent: 0;
+  }
+
+  /* copyright page */
+
+  section[data-type="copyright-page"] {
+    margin-top: 100px;
+    page-break-after: always;
+  }
+
+  section[data-type="copyright-page"] h1 {
+    font-size: 0.8em;
+  }
+
+  section[data-type="copyright-page"] p {
+    margin: 0;
+    font-family: sans-serif;
+    font-size: 0.8em;
+    text-indent: 0;
+  }
+
+  /* dedication */
+
+  section[data-type="dedication"] {
+    padding-top: 100px;
+    font-family: serif;
+    font-style: italic;
+    page-break-after: always;
+    text-align: center;
+  }
+
+  /* table of contents */
+
+  /* global styles for the table of contents */
+
+  /* table of contents is a series of nested lists in a nav element */
+
+  nav[data-type="toc"] a { /* all table of contents entries are also links */
+    font-style: normal;
+  }
+
+  nav[data-type="toc"] li { /* no list marker on table of contents entries */
+    list-style-type: none;
+  }
+
+  nav[data-type="toc"] > h1 { /* table of contents heading */
+    margin-top: 80px;
+    margin-bottom: 50px;
+    font-size: 1.5em;
+    line-height: 120%;
+    text-align: center;
+  }
+
+  /* defining fonts for the table of contents */
+
+  nav[data-type="toc"] a {
+    text-decoration: none;
+  }
+
+  nav[data-type="toc"] li {
+    font-family: sans-serif;
+  }
+
+  nav[data-type="toc"] li[data-type="chapter"],
+  nav[data-type="toc"] li[data-type="part"],
+  nav[data-type="toc"] li[data-type="appendix"] {
+    margin-left: 0;
+    font-size: 1em;
+    line-height: 120%;
+    text-indent: 0;
+  }
+
+  /* entries for parts in the table of contents */
+
+  nav[data-type="toc"] li[data-type="part"] {
+    margin-top: 25px;
+  }
+
+  nav[data-type="toc"] li[data-type="part"] > a {
+    display: inline-block;
+    width: 100%;
+    border-bottom: 1px solid #333;
+  }
+
+  nav[data-type="toc"] li[data-type="part"] ol {
+    margin-left: 0;
+    text-indent: 0;
+  }
+
+  /* entries for chapters and appendixes in the table of contents */
+
+  nav[data-type="toc"] li[data-type="chapter"] {
+    margin-top: 20px;
+  }
+
+  nav[data-type="toc"] li[data-type="chapter"]:last-of-type,
+  nav[data-type="toc"] li[data-type="appendix"] {
+    margin-bottom: 20px;
+  }
+
+  /* entries for sub-sections */
+
+  nav[data-type="toc"] li[data-type="chapter"] ol {
+    margin-left: 20px;
+    font-family: sans-serif;
+    font-size: 1em;
+    line-height: 120%;
+    text-indent: -10px;
+  }
+
+  nav[data-type="toc"] li[data-type="chapter"] ol ol {
+    margin-left: 10px;
+    text-indent: -10px;
+  }
+
+  /* front and backmatter in the table of contents */
+
+  nav[data-type="toc"] li[data-type="preface"],
+  nav[data-type="toc"] li[data-type="foreword"],
+  nav[data-type="toc"] li[data-type="glossary"],
+  nav[data-type="toc"] li[data-type="index"] {
+    font-size: 1em;
+    line-height: 120%;
+  }
+
+  nav[data-type="toc"] li[data-type="preface"] ol,
+  nav[data-type="toc"] li[data-type="foreword"] ol {
+    display: none;
+  }
+
+  /* page breaks after all chapter-level sections */
+
+  section[data-type="preface"],
+  div[data-type="part"],
+  section[data-type="chapter"],
+  section[data-type="appendix"] {
+    page-break-after: always;
+  }
+
+  /* preface, chapter, and appendix headings */
+
+  /* heading font is sans serif */
+
+  nav[data-type="toc"] > h1,
+  div[data-type="part"] > h1,
+  section[data-type="preface"] > h1,
+  section[data-type="chapter"] > h1,
+  section[data-type="appendix"] > h1,
+  section[data-type="sect1"] h1 {
+    font-family: serif;
+    line-height: 120%;
+  }
+
+  section[data-type="sect2"] h2,
+  section[data-type="sect3"] h3 {
+    font-family: sans-serif;
+    line-height: 120%;
+  }
+
+  /* shared styles for all chapter-level headings */
+  section[data-type="preface"] > h1,
+  section[data-type="chapter"] > h1,
+  section[data-type="appendix"] > h1 {
+    margin-top: 70px;
+    font-size: 1.8em;
+    margin-bottom: 40px;
+    text-align: left;
+  }
+
+  /* section headings */
+
+  section[data-type="sect1"] h1 { /* A-level headings */
+    margin-top: 40px;
+    margin-bottom: 20px;
+    font-size: 1.5em;
+  }
+
+  section[data-type="sect2"] h2 { /* B-level headings */
+    margin-top: 30px;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+  }
+
+  section[data-type="sect3"] h3 { /* C-level headings */
+    margin-top: 20px;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+  }
+
+  /* parts */
+
+  div[data-type="part"] > h1 {
+    margin-top: 100px;
+    margin-bottom: 70px;
+    font-size: 1.8em;
+    text-align: center;
+  }
+
+  /* lists */
+
+  ul, ol { /* bulleted and numbered lists */
+    margin: 15px 0 15px 40px;
+  }
+
+  ul li,
+  ol li,
+  ul li p,
+  ol li p {
+    margin-top: 5px;
+    font-family: sans-serif;
+    font-size: 1em;
+    line-height: 120%;
+    text-indent: 0;
+  }
+
+  dl { /* definition lists */
+    margin-bottom: 15px;
+  }
+
+  dt { /* definition list terms */
+    margin-top: 15px;
+    margin-bottom: 4px;
+    font-family: sans-serif;
+    font-size: 0.9em;
+    line-height: 120%;
+  }
+
+  dd { /* definition list descriptions */
+    margin-left: 20px;
+    text-indent: 0;
+  }
+
+  dd p {
+    text-indent: 0;
+  }
+
+  /* tables */
+
+  table {
+    margin-top: 30px;
+    margin-bottom: 30px;
+    border-collapse: collapse;
+    border-bottom: 1px solid #888;
+  }
+
+  table caption {
+    margin: 0 0 20px;
+    padding: 0;
+    font-family: sans-serif;
+    font-size: 0.8em;
+    line-height: 120%;
+    text-align: left;
+  }
+
+  tr {
+    border-width: 0px;
+  }
+
+  th { /* table heading rows */
+    margin-top: 0;
+    font-family: sans-serif;
+    font-size: 0.8em;
+    line-height: 120%;
+    text-align: left;
+    border-top: 1px solid #888;
+    border-bottom: 1px solid #888;
+  }
+
+  th, td {
+    padding: 6px;
+  }
+
+  td, table p { /* table body text */
+    font-family: sans-serif;
+    font-size: 12px;
+    line-height: 120%;
+  }
+
+  table p { /* table body text */
+    margin-top: 6px;
+    text-indent: 0;
+  }
+
+  td pre.programlisting,
+  td pre.screen,
+  td pre.literallayout,
+  td code { /* allow code in tables to wrap */
+    word-wrap: break-word;
+    white-space: pre-wrap;
+  }
+
+  /* figures */
+
+  figure { /* figure containers */
+    display: block;
+    padding: 0;
+    margin-top: 30px;
+    margin-bottom: 30px;
+    page-break-inside: avoid;
+  }
+
+  figure img { /* figure images */
+    max-width: 100%;
+    padding: 5px 0 5px 0;
+    margin: 0;
+    border-top: 1px solid #888;
+    border-bottom: 1px solid #888;
+  }
+
+  figcaption {
+    display: block;
+    font-family: serif;
+    font-size: 1em;
+    font-style: italic;
+    line-height: 120%;
+  }
+
+  /* sidebars */
+
+  aside { /* sidebar containers */
+    padding: 20px 20px 10px;
+    margin: 30px 0;
+    background-color: #d8d8d8;
+    border: 1px solid #d8d8d8;
+  }
+
+  aside h5 { /* sidebar titles */
+    padding: 0;
+    margin: 0;
+    font-family: sans-serif;
+    font-size: 1em;
+    line-height: 120%;
+    text-align: center;
+  }
+
+  aside h6 { /* sidebar subtitles */
+    font-family: sans-serif;
+    font-size: 0.9em;
+    font-weight: bold;
+    line-height: 120%;
+  }
+
+  aside p { /* sidebar text */
+    margin-top: 6px;
+    font-family: serif;
+    font-size: 1em;
+    line-height: 130%;
+    text-indent: 0;
+  }
+
+  /* admonitions */
+
+  div[data-type="note"],
+  div[data-type="warning"] { /* admonition containers */
+    padding: 10px 0;
+    margin: 30px;
+    border-top: 2px solid #888;
+    border-bottom: 1px solid #d8d8d8;
+    page-break-inside: avoid; /* avoid breaking admonitions across pages */
+  }
+
+  div[data-type="note"] h1,
+  div[data-type="warning"] h1 { /* admonition titles */
+    padding: 0;
+    margin: 4px 0;
+    font-family: sans-serif;
+    font-size: 0.8em;
+    font-weight: bold;
+    color: #000;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  div[data-type="note"] p,
+  div[data-type="warning"] p { /* admonition text */
+    font-family: serif;
+    font-size: 1em;
+    line-height: 120%;
+    text-indent: 0;
+  }
+
+  /* code */
+
+  pre,
+  code { /* monospace font for both code blocks and inline code */
+    font-family: monospace;
+  }
+
+  pre {
+    background: var(--book-code-bg);
+
+    code {
+      display: inline;
+      background: var(--book-code-bg);
+      border: 0;
+    }
+  }
+
+  pre { /* code blocks */
+    margin: 10px 0;
+    overflow-x: auto;
+    font-size: 0.9em;
+    line-height: 120%;
+    color: var(--book-code-color);
+  }
+
+  code { /* inline code */
+    padding: 0;
+    color: var(--book-code-color);
+    background: var(--book-code-bg);
+    border: 1px solid var(--book-code-border);
+  }
+
+  table pre { /* code blocks within tables */
+    text-indent: 0;
+  }
+
+  div[data-type="note"] code,
+  div[data-type="warning"] code,
+  aside code,
+  table code { /* inline code within notes, sidebars and tables */
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  div[data-type="example"] h5 { /* titles for formal code examples */
+    padding-bottom: 6px;
+    margin-top: 30px;
+    font-family: sans-serif;
+    font-size: 0.8em;
+    line-height: 120%;
+    border-bottom: 1px solid #d8d8d8;
+  }
+
+  /* blockquote */
+
+  blockquote {
+    margin-right: 30px;
+    margin-left: 30px;
+    font-family: sans-serif;
+    font-size: 0.9em;
+    line-height: 130%;
+  }
+
+  blockquote p {
+    text-indent: 0;
+  }
+
+  /* website nav element */
+
+  div.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 10px 20px;
+    font-family: sans-serif;
+    background-color: #e8e8e8;
+    border-bottom: 1px solid #d8d8d8;
+  }
+
+  div.navbar h1 {
+    float: left;
+    padding: 0;
+    margin: 0;
+    font-size: 1em;
+    font-weight: normal;
+    color: #999;
+  }
+
+  div.navbar p {
+    float: right;
+    padding: 0;
+    margin: 0;
+    font-family: sans-serif;
+    font-size: 1em;
+    font-weight: normal;
+  }
+
+  div.navbar p a {
+    color: #999;
+    text-decoration: none;
+  }
+
+  /* iPad
+  ------------------------------------------------ */
+
+  @media screen and (min-width: 480px) and (max-width: 1024px) {
+    body {
+      width: 100%;
+      padding: 20px;
+    }
+  }
+
+  /* iPhone [portrait + landscape]
+  --------------------------------------------------------------------------- */
+
+  @media screen and (max-width: 480px) {
+    body {
+      width: 100%;
+      padding: 10px;
+    }
+
+    /* website nav element */
+
+    div.navbar {
+      position: relative;
+      padding: 10px 20px;
+      text-align: center;
+      border-bottom: 2px solid #e8e8e8;
+      box-shadow: 0 0 0 #f0f0f0;
+    }
+
+    div.navbar h1 {
+      float: none;
+      margin-bottom: 10px;
+    }
+
+    div.navbar p {
+      float: none;
+      text-indent: 0;
+    }
+  }
+}

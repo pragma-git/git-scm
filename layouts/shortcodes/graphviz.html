@@ -1,0 +1,4 @@
+<pre class="graphviz"{{ if (ne "" (.Get "engine")) }} engine="{{(.Get "engine")}}"{{ end }}{{ if (ne "" (.Get "alt")) }} alt="{{ (.Get "alt") }}"{{ end }}>
+  {{ .Inner | htmlEscape | safeHTML }}
+</pre>
+{{ .Page.Store.Set "hasGraphviz" true }}

@@ -1,0 +1,23 @@
+{{/* from https://bitbanged.com/posts/how-to-use-inline-svgs-with-hugo/ */}}
+{{/* and https://css-tricks.com/accessible-svgs/ */}}
+{{ $svg := . }}
+{{ $class := print $svg "-icon" }}
+{{ $match := "<svg (.*)?>(.*)</svg>" }}
+{{ $replaceWith := printf `<svg class="%s" ${1}>${2}</svg>` $class }}
+
+{{ $source := printf "/static/images/%s.svg" $svg | readFile }}
+
+{{/* The SVGs are created in Inkscape. They all are sourced from: */}}
+{{/*   static/images/company-project-logos/all.svg */}}
+{{/*  */}}
+{{/* The are exported using the "Batch Export" -> "Layers" function. */}}
+{{/*  */}}
+{{/* Four colors are used in the source drawing. These are replaced */}}
+{{/* by CSS variables to accomodate dark mode. */}}
+
+{{ $source = replace $source "#aaaaaa" "var(--logos-1)" }}
+{{ $source = replace $source "#999999" "var(--logos-2)" }}
+{{ $source = replace $source "#666666" "var(--logos-3)" }}
+{{ $source = replace $source "#333333" "var(--logos-4)" }}
+
+{{ return (replaceRE $match $replaceWith $source | safeHTML) }}
